@@ -1,0 +1,39 @@
+# Production Profile Overrides
+# This profile enhances the base application.yml with production-specific settings
+spring:
+  datasource:
+    hikari:
+      # Production-tuned connection pool settings
+      maximum-pool-size: 30
+      minimum-idle: 5
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      leak-detection-threshold: 60000
+
+server:
+  compression:
+    enabled: true
+    min-response-size: 1024
+  tomcat:
+    threads:
+      max: 200
+      min-spare: 10
+    max-connections: 10000
+    accept-count: 100
+
+
+logging:
+  level:
+    root: WARN
+    com.ingestion: INFO
+    org.flywaydb: INFO
+    org.springframework.security: INFO
+  file:
+    name: /var/log/delta-ingestion/app.log
+    max-size: 100MB
+    max-history: 10
+    total-size-cap: 1GB
+  pattern:
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+

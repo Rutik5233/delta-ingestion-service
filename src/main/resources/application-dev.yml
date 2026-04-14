@@ -1,0 +1,20 @@
+# Development Profile Overrides
+# This profile enhances the base application.yml with development-specific settings
+spring:
+  datasource:
+    hikari:
+      # Development settings - smaller pool for local testing
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 900000
+      max-lifetime: 1800000
+
+logging:
+  level:
+    root: INFO
+    com.ingestion: DEBUG
+    org.flywaydb: DEBUG
+    org.springframework.security: DEBUG
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+

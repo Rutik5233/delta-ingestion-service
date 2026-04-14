@@ -2,14 +2,17 @@ spring:
   application:
     name: delta-ingestion-service
 
+  # Active profile defaults to 'dev' if not specified
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/delta_ingestion}
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 2
       connection-timeout: 30000
+      auto-commit: true
 
   flyway:
     enabled: true
@@ -27,9 +30,3 @@ server:
 
 ingestion:
   chunk-size: 1000
-
-logging:
-  level:
-    root: INFO
-    com.ingestion: DEBUG
-    org.flywaydb: DEBUG
