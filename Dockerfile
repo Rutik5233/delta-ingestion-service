@@ -22,9 +22,12 @@ WORKDIR /app
 
 RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
+# Create log directory with proper permissions
+RUN mkdir -p /var/log/delta-ingestion
+
 COPY --from=builder /app/target/*.jar app.jar
 
-RUN chown appuser:appgroup app.jar
+RUN chown appuser:appgroup app.jar && chown -R appuser:appgroup /var/log/delta-ingestion
 
 USER appuser
 

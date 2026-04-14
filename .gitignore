@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 .env
+logs/
+*.log
+dependencies.txt
 
 ### STS ###
 .apt_generated

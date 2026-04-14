@@ -39,6 +39,11 @@ services:
       DB_URL: jdbc:postgresql://postgres:5432/delta_ingestion
       DB_USERNAME: postgres
       DB_PASSWORD: postgres
+      # Set Spring profile to prod for production deployments
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
+    volumes:
+      # Create log directory on the host machine for persistent logs
+      - ./logs:/var/log/delta-ingestion
     depends_on:
       postgres:
         condition: service_healthy    # wait for postgres healthcheck to pass before starting app
