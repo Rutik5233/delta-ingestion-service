@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- Import Spring Boot's default logback configuration to get things like logging.file support -->
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Spring profile: Development -->
+    <springProfile name="dev">
+        <!-- Console appender - colorized output for development -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- Development root logger - INFO level -->
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+
+        <!-- Application-specific DEBUG logging -->
+        <logger name="com.ingestion" level="DEBUG"/>
+        <logger name="org.flywaydb" level="DEBUG"/>
+        <logger name="org.springframework.security" level="DEBUG"/>
+    </springProfile>
+
+    <!-- Spring profile: Production -->
+    <springProfile name="prod">
+        <!-- Console appender - standard output for production -->
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- File appender with rolling policy for production -->
+        <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <!-- Log file location -->
+            <file>/var/log/delta-ingestion/app.log</file>
+
+            <!-- Rolling policy: rotate when file reaches 100MB or daily -->
+            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+                <!-- Filename pattern for archived logs -->
+                <fileNamePattern>/var/log/delta-ingestion/app-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+                <!-- Keep logs for 10 days -->
+                <maxHistory>10</maxHistory>
+                <!-- Max file size before rolling -->
+                <maxFileSize>100MB</maxFileSize>
+                <!-- Total size cap of all log files -->
+                <totalSizeCap>1GB</totalSizeCap>
+            </rollingPolicy>
+
+            <!-- Encoder with structured logging format -->
+            <encoder>
+                <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            </encoder>
+        </appender>
+
+        <!-- Production root logger - WARN level to reduce noise -->
+        <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+        </root>
+
+        <!-- Application-specific INFO logging -->
+        <logger name="com.ingestion" level="INFO"/>
+        <logger name="org.flywaydb" level="INFO"/>
+        <logger name="org.springframework.security" level="INFO"/>
+    </springProfile>
+
+    <!-- Fallback for any other profile (defaults to dev-like settings) -->
+    <appender name="CONSOLE_FALLBACK" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE_FALLBACK"/>
+    </root>
+</configuration>

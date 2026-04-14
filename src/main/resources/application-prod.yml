@@ -1,5 +1,6 @@
 # Production Profile Overrides
 # This profile enhances the base application.yml with production-specific settings
+# Logging is configured in logback.xml with springProfile name="prod"
 spring:
   datasource:
     hikari:
@@ -20,20 +21,3 @@ server:
       min-spare: 10
     max-connections: 10000
     accept-count: 100
-
-
-logging:
-  level:
-    root: WARN
-    com.ingestion: INFO
-    org.flywaydb: INFO
-    org.springframework.security: INFO
-  file:
-    name: /var/log/delta-ingestion/app.log
-    max-size: 100MB
-    max-history: 10
-    total-size-cap: 1GB
-  pattern:
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-
