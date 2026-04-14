@@ -30,6 +30,8 @@ server:
 
 ingestion:
   chunk-size: 1000
+  # Maximum batch size per request (100k max as per requirements)
+  max-batch-size: 100000
 
 management:
   endpoints:

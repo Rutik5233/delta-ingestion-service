@@ -5,6 +5,7 @@ import com.ingestion.dto.IngestFailure;
 import com.ingestion.dto.IngestResponse;
 import com.ingestion.dto.ResolvedCustomer;
 import com.ingestion.repository.CustomerRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ public class CustomerIngestService {
 
     private final CustomerRepository customerRepository;
     private final LookupCacheService  lookupCacheService;
+    private final MeterRegistry       meterRegistry;
 
     @Value("${ingestion.chunk-size:1000}")
     private int chunkSize;
@@ -58,6 +60,7 @@ public class CustomerIngestService {
 
     @Transactional
     protected ChunkResult processChunk(List<CustomerIngestRequest> chunk) {
+        long chunkStartTime = System.currentTimeMillis();
         List<IngestFailure> failures    = new ArrayList<>();
         List<ResolvedCustomer> resolved = new ArrayList<>(chunk.size());
 
@@ -111,7 +114,14 @@ public class CustomerIngestService {
         }
 
         int inserted = customerRepository.bulkInsert(newCustomers);
-        log.debug("Chunk inserted={}, skipped={}, failed={}", inserted, skipped, failures.size());
+        long chunkDuration = System.currentTimeMillis() - chunkStartTime;
+        meterRegistry.timer("ingestion.chunk.duration")
+                .record(chunkDuration, java.util.concurrent.TimeUnit.MILLISECONDS);
+        meterRegistry.counter("ingestion.chunk.records.processed", "status", "inserted")
+                .increment(inserted);
+        meterRegistry.counter("ingestion.chunk.records.processed", "status", "skipped")
+                .increment(skipped);
+        log.debug("Chunk inserted={}, skipped={}, failed={}, duration={}ms", inserted, skipped, failures.size(), chunkDuration);
 
         return new ChunkResult(inserted, skipped, failures);
     }
