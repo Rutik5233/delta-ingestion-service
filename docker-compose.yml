@@ -6,16 +6,18 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: delta_postgres
+    env_file:
+      - .env
     environment:
       POSTGRES_DB: delta_ingestion
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
       - "5432:5432"          # expose to localhost so you can connect via DBeaver/psql too
     volumes:
       - postgres_data:/var/lib/postgresql/data   # persist data between restarts
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d delta_ingestion"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d delta_ingestion"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,15 +31,14 @@ services:
     container_name: delta_ingestion_app
     ports:
       - "8080:8080"
+    env_file:
+      - .env
     environment:
       # Override application.yml values with container-specific connection details.
       # 'postgres' here refers to the service name above — Docker resolves it automatically.
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/delta_ingestion
-      SPRING_DATASOURCE_USERNAME: postgres
-      SPRING_DATASOURCE_PASSWORD: postgres
-      SPRING_FLYWAY_ENABLED: true
-      INGESTION_API_USERNAME: ${INGESTION_API_USERNAME}
-      INGESTION_API_PASSWORD: ${INGESTION_API_PASSWORD}
+      DB_URL: jdbc:postgresql://postgres:5432/delta_ingestion
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
     depends_on:
       postgres:
         condition: service_healthy    # wait for postgres healthcheck to pass before starting app
