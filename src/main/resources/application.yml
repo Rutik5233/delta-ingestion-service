@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: delta-ingestion-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/delta_ingestion
+    username: postgres
+    password: postgres
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 30000
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    com.ingestion: DEBUG
+    org.flywaydb: DEBUG
