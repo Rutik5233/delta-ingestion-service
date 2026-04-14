@@ -1,0 +1,36 @@
+package com.ingestion.config;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+
+@Configuration
+@EnableWebSecurity
+public class SecurityConfig {
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            // Disable CSRF — not needed for stateless REST APIs
+            .csrf(csrf -> csrf.disable())
+
+            // Every request must be authenticated
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().authenticated()
+            )
+
+            // Use Basic Auth
+            .httpBasic(httpBasic -> {})
+
+            // Stateless — no sessions, every request must send credentials
+            // This is correct for a REST API
+            .sessionManagement(session -> session
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            );
+
+        return http.build();
+    }
+}

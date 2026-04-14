@@ -15,8 +15,18 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+  # Basic Auth credentials — values come from environment variables
+  security:
+    user:
+      name: ${INGESTION_API_USERNAME}
+      password: ${INGESTION_API_PASSWORD}
+      roles: ADMIN
+
 server:
   port: 8080
+
+ingestion:
+  chunk-size: 1000
 
 logging:
   level:
