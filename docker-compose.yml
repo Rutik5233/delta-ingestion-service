@@ -36,6 +36,8 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_FLYWAY_ENABLED: true
+      INGESTION_API_USERNAME: ${INGESTION_API_USERNAME}
+      INGESTION_API_PASSWORD: ${INGESTION_API_PASSWORD}
     depends_on:
       postgres:
         condition: service_healthy    # wait for postgres healthcheck to pass before starting app

@@ -105,6 +105,11 @@ public class CustomerIngestService {
             else newCustomers.add(c);
         }
 
+        if (newCustomers.isEmpty()) {
+            log.debug("Chunk: no new customers to insert, skipping bulkInsert");
+            return new ChunkResult(0, skipped, failures);
+        }
+
         int inserted = customerRepository.bulkInsert(newCustomers);
         log.debug("Chunk inserted={}, skipped={}, failed={}", inserted, skipped, failures.size());
 
