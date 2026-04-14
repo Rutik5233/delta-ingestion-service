@@ -9,7 +9,7 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>org.citta.ai</groupId>
-    <artifactId>delta-ingestion-with-lookups</artifactId>
+    <artifactId>delta-ingestion-service</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>delta-ingestion-with-lookups</name>
     <description>delta-ingestion-with-lookups</description>

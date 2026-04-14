@@ -24,7 +24,7 @@ services:
   # ---- Spring Boot Application ----
   app:
     build:
-      context: ../../../Downloads/files
+      context: .
       dockerfile: Dockerfile
     container_name: delta_ingestion_app
     ports:
