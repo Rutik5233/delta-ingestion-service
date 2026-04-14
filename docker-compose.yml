@@ -30,7 +30,8 @@ services:
       dockerfile: Dockerfile
     container_name: delta_ingestion_app
     ports:
-      - "8080:8080"
+      - "8080:8080"      # Main application port
+      - "8081:8081"      # Actuator/metrics port
     env_file:
       - .env
     environment:

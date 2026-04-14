@@ -17,8 +17,14 @@ public class SecurityConfig {
             // Disable CSRF — not needed for stateless REST APIs
             .csrf(csrf -> csrf.disable())
 
-            // Every request must be authenticated
+            // Authorization rules
             .authorizeHttpRequests(auth -> auth
+                // Allow health endpoint without authentication (for load balancers)
+                .requestMatchers("/actuator/health/**").permitAll()
+                // Allow metrics endpoint without authentication (for monitoring tools)
+                .requestMatchers("/actuator/metrics/**").permitAll()
+                .requestMatchers("/actuator/prometheus").permitAll()
+                // All other requests must be authenticated
                 .anyRequest().authenticated()
             )
 
