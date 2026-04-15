@@ -37,9 +37,9 @@ services:
     environment:
       # Override application.yml values with container-specific connection details.
       # 'postgres' here refers to the service name above — Docker resolves it automatically.
-      DB_URL: jdbc:postgresql://postgres:5432/delta_ingestion
-      DB_USERNAME: postgres
-      DB_PASSWORD: postgres
+      DB_URL: ${DB_URL:-jdbc:postgresql://localhost:5432/delta_ingestion}
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
       # Set Spring profile to prod for production deployments
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
     volumes:
