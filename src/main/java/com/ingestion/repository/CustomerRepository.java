@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.sql.PreparedStatement;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Collection;
@@ -64,7 +65,14 @@ public class CustomerRepository {
         int inserted = 0;
         for (int[] batch : batchResult) {
             for (int count : batch) {
-                if (count > 0) inserted += count;
+                if (count == Statement.SUCCESS_NO_INFO) {
+                    // PostgreSQL driver returns -2 for successful batch rows — count as 1 insert
+                    inserted++;
+                } else if (count > 0) {
+                    inserted += count;
+                }
+                // count == 0: ON CONFLICT DO NOTHING skipped this row — correct, don't count
+                // count == EXECUTE_FAILED (-3): row failed — don't count
             }
         }
         return inserted;

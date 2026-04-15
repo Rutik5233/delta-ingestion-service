@@ -5,12 +5,12 @@ import com.ingestion.dto.IngestFailure;
 import com.ingestion.dto.IngestResponse;
 import com.ingestion.dto.ResolvedCustomer;
 import com.ingestion.repository.CustomerRepository;
+import com.ingestion.service.CustomerIngestChunkProcessor.ChunkResult;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -19,9 +19,10 @@ import java.util.*;
 @RequiredArgsConstructor
 public class CustomerIngestService {
 
-    private final CustomerRepository customerRepository;
-    private final LookupCacheService  lookupCacheService;
-    private final MeterRegistry       meterRegistry;
+    private final CustomerIngestChunkProcessor chunkProcessor;
+    private final CustomerRepository            customerRepository;
+    private final LookupCacheService            lookupCacheService;
+    private final MeterRegistry                 meterRegistry;
 
     @Value("${ingestion.chunk-size:1000}")
     private int chunkSize;
@@ -34,13 +35,14 @@ public class CustomerIngestService {
         int totalSkipped  = 0;
         List<IngestFailure> failures = new ArrayList<>();
 
-        List<CustomerIngestRequest> deduplicated = deduplicateIncoming(incoming, failures);
-        List<List<CustomerIngestRequest>> chunks  = partition(deduplicated, chunkSize);
-        log.info("Processing {} chunks of up to {} records each", chunks.size(), chunkSize);
+        DeduplicationResult dedup = deduplicateIncoming(incoming);
+        failures.addAll(dedup.lookupFailures());
+        List<List<CustomerIngestRequest>> chunks = partition(dedup.records(), chunkSize);
+        log.info("Processing {} chunks of up to {} records each (dedup failures: {})", chunks.size(), chunkSize, dedup.lookupFailures().size());
 
         for (int i = 0; i < chunks.size(); i++) {
             log.debug("Processing chunk {}/{}", i + 1, chunks.size());
-            ChunkResult result = processChunk(chunks.get(i));
+            ChunkResult result = chunkProcessor.processChunk(chunks.get(i));
             totalInserted += result.inserted();
             totalSkipped  += result.skipped();
             failures.addAll(result.failures());
@@ -58,75 +60,7 @@ public class CustomerIngestService {
                 .build();
     }
 
-    @Transactional
-    protected ChunkResult processChunk(List<CustomerIngestRequest> chunk) {
-        long chunkStartTime = System.currentTimeMillis();
-        List<IngestFailure> failures    = new ArrayList<>();
-        List<ResolvedCustomer> resolved = new ArrayList<>(chunk.size());
-
-        for (CustomerIngestRequest req : chunk) {
-            Optional<Long> countryId = lookupCacheService.resolveCountryCode(req.getCountryCode());
-            Optional<Long> statusId  = lookupCacheService.resolveStatusCode(req.getStatusCode());
-
-            if (countryId.isEmpty()) {
-                failures.add(IngestFailure.builder()
-                        .externalId(req.getExternalId())
-                        .reason("Unknown country_code: " + req.getCountryCode())
-                        .build());
-                continue;
-            }
-            if (statusId.isEmpty()) {
-                failures.add(IngestFailure.builder()
-                        .externalId(req.getExternalId())
-                        .reason("Unknown status_code: " + req.getStatusCode())
-                        .build());
-                continue;
-            }
-            resolved.add(ResolvedCustomer.builder()
-                    .externalId(req.getExternalId())
-                    .name(req.getName())
-                    .email(req.getEmail())
-                    .countryId(countryId.get())
-                    .statusId(statusId.get())
-                    .build());
-        }
-
-        if (resolved.isEmpty()) {
-            return new ChunkResult(0, 0, failures);
-        }
-
-        Set<String> incomingIds = new HashSet<>();
-        resolved.forEach(c -> incomingIds.add(c.getExternalId()));
-
-        Set<String> existingIds = customerRepository.findExistingExternalIds(incomingIds);
-        log.debug("Chunk: {} incoming, {} already exist", incomingIds.size(), existingIds.size());
-
-        List<ResolvedCustomer> newCustomers = new ArrayList<>();
-        int skipped = 0;
-        for (ResolvedCustomer c : resolved) {
-            if (existingIds.contains(c.getExternalId())) skipped++;
-            else newCustomers.add(c);
-        }
-
-        if (newCustomers.isEmpty()) {
-            log.debug("Chunk: no new customers to insert, skipping bulkInsert");
-            return new ChunkResult(0, skipped, failures);
-        }
-
-        int inserted = customerRepository.bulkInsert(newCustomers);
-        long chunkDuration = System.currentTimeMillis() - chunkStartTime;
-        meterRegistry.timer("ingestion.chunk.duration")
-                .record(chunkDuration, java.util.concurrent.TimeUnit.MILLISECONDS);
-        meterRegistry.counter("ingestion.chunk.records.processed", "status", "inserted")
-                .increment(inserted);
-        meterRegistry.counter("ingestion.chunk.records.processed", "status", "skipped")
-                .increment(skipped);
-        log.debug("Chunk inserted={}, skipped={}, failed={}, duration={}ms", inserted, skipped, failures.size(), chunkDuration);
-
-        return new ChunkResult(inserted, skipped, failures);
-    }
-
-    @Transactional(readOnly = true)
+    @org.springframework.transaction.annotation.Transactional(readOnly = true) // dryRun reads DB to check existing IDs
     public IngestResponse dryRun(List<CustomerIngestRequest> incoming) {
         log.info("[DRY RUN] Simulating ingestion of {} records", incoming.size());
 
@@ -135,8 +69,9 @@ public class CustomerIngestService {
         int wouldSkip   = 0;
         List<IngestFailure> failures = new ArrayList<>();
 
-        List<CustomerIngestRequest> deduplicated = deduplicateIncoming(incoming, failures);
-        List<List<CustomerIngestRequest>> chunks  = partition(deduplicated, chunkSize);
+        DeduplicationResult dedup = deduplicateIncoming(incoming);
+        failures.addAll(dedup.lookupFailures());
+        List<List<CustomerIngestRequest>> chunks = partition(dedup.records(), chunkSize);
 
         for (List<CustomerIngestRequest> chunk : chunks) {
             List<ResolvedCustomer> resolved = new ArrayList<>();
@@ -186,23 +121,21 @@ public class CustomerIngestService {
                 .build();
     }
 
-    private List<CustomerIngestRequest> deduplicateIncoming(
-            List<CustomerIngestRequest> records,
-            List<IngestFailure> failures) {
-
+    private DeduplicationResult deduplicateIncoming(List<CustomerIngestRequest> records) {
         Set<String> seen = new LinkedHashSet<>();
         List<CustomerIngestRequest> deduped = new ArrayList<>();
+        List<IngestFailure> nullIdFailures = new ArrayList<>();
 
         for (CustomerIngestRequest req : records) {
             if (req.getExternalId() == null) {
-                failures.add(IngestFailure.builder()
+                nullIdFailures.add(IngestFailure.builder()
                         .externalId("null")
                         .reason("external_id is null")
                         .build());
                 continue;
             }
             if (!seen.add(req.getExternalId())) {
-                failures.add(IngestFailure.builder()
+                nullIdFailures.add(IngestFailure.builder()
                         .externalId(req.getExternalId())
                         .reason("Duplicate external_id within incoming batch — first occurrence kept")
                         .build());
@@ -210,8 +143,12 @@ public class CustomerIngestService {
                 deduped.add(req);
             }
         }
-        return deduped;
+        return new DeduplicationResult(deduped, nullIdFailures);
     }
+
+    private record DeduplicationResult(
+            List<CustomerIngestRequest> records,
+            List<IngestFailure> lookupFailures) {}
 
     private <T> List<List<T>> partition(List<T> list, int size) {
         List<List<T>> partitions = new ArrayList<>();
@@ -221,5 +158,4 @@ public class CustomerIngestService {
         return partitions;
     }
 
-    private record ChunkResult(int inserted, int skipped, List<IngestFailure> failures) {}
 }
