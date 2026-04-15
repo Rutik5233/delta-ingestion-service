@@ -14,28 +14,30 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF — not needed for stateless REST APIs
-            .csrf(csrf -> csrf.disable())
+                // Disable CSRF — not needed for stateless REST APIs
+                .csrf(csrf -> csrf.disable())
 
-            // Authorization rules
-            .authorizeHttpRequests(auth -> auth
-                // Allow health endpoint without authentication (for load balancers)
-                .requestMatchers("/actuator/health/**").permitAll()
-                // Allow metrics endpoint without authentication (for monitoring tools)
-                .requestMatchers("/actuator/metrics/**").permitAll()
-                .requestMatchers("/actuator/prometheus").permitAll()
-                // All other requests must be authenticated
-                .anyRequest().authenticated()
-            )
+                // Authorization rules
+                .authorizeHttpRequests(auth -> auth
+                        // Allow health endpoint without authentication (for load balancers)
+                        .requestMatchers("/actuator/health/**").permitAll()
+                        // Allow metrics endpoint without authentication (for monitoring tools)
+                        .requestMatchers("/actuator/metrics/**").permitAll()
+                        .requestMatchers("/actuator/prometheus").permitAll()
+                        // Allow Swagger UI and OpenAPI spec without authentication
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // All other requests must be authenticated
+                        .anyRequest().authenticated()
+                )
 
-            // Use Basic Auth
-            .httpBasic(httpBasic -> {})
+                // Use Basic Auth
+                .httpBasic(httpBasic -> {})
 
-            // Stateless — no sessions, every request must send credentials
-            // This is correct for a REST API
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            );
+                // Stateless — no sessions, every request must send credentials
+                // This is correct for a REST API
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                );
 
         return http.build();
     }
