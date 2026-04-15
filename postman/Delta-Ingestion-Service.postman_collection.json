@@ -1,0 +1,161 @@
+{
+  "info": {
+    "_postman_id": "d1e2f3a4-b5c6-7890-abcd-ef1234567890",
+    "name": "Delta Ingestion Service",
+    "description": "All APIs for the Delta Ingestion Service.\n\nSwitch between **Local** and **Railway Cloud** environments using the environment selector.\n\nCredentials are stored as collection variables (`username` / `password`).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "basic",
+    "basic": [
+      { "key": "username", "value": "{{username}}", "type": "string" },
+      { "key": "password", "value": "{{password}}", "type": "string" }
+    ]
+  },
+  "variable": [
+    {
+      "key": "username",
+      "value": "admin",
+      "type": "string"
+    },
+    {
+      "key": "password",
+      "value": "ingestion@123",
+      "type": "secret"
+    }
+  ],
+  "item": [
+    {
+      "name": "Ingestion",
+      "item": [
+        {
+          "name": "Ingest Customers",
+          "request": {
+            "auth": { "type": "inherit" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"externalId\": \"cust_001\",\n    \"name\": \"Alice Smith\",\n    \"email\": \"alice@example.com\",\n    \"countryCode\": \"US\",\n    \"statusCode\": \"ACTIVE\"\n  },\n  {\n    \"externalId\": \"cust_002\",\n    \"name\": \"Bob Jones\",\n    \"email\": \"bob@example.com\",\n    \"countryCode\": \"IN\",\n    \"statusCode\": \"INACTIVE\"\n  },\n  {\n    \"externalId\": \"cust_003\",\n    \"name\": \"Carol Lee\",\n    \"email\": \"carol@example.com\",\n    \"countryCode\": \"GB\",\n    \"statusCode\": \"PENDING\"\n  }\n]",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/ingest",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "ingest"]
+            },
+            "description": "Ingest a batch of customer records. Inserts only net-new records (deduplication by `externalId`). Run the same payload twice — nothing extra gets written.\n\nReturns counts of received / inserted / skipped_existing / failed."
+          },
+          "response": []
+        },
+        {
+          "name": "Ingest Customers — with validation failure",
+          "request": {
+            "auth": { "type": "inherit" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"externalId\": \"cust_good\",\n    \"name\": \"Good Record\",\n    \"email\": \"good@example.com\",\n    \"countryCode\": \"US\",\n    \"statusCode\": \"ACTIVE\"\n  },\n  {\n    \"externalId\": \"cust_bad\",\n    \"name\": \"Bad Country\",\n    \"email\": \"bad@example.com\",\n    \"countryCode\": \"ZZ\",\n    \"statusCode\": \"ACTIVE\"\n  }\n]",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/ingest",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "ingest"]
+            },
+            "description": "Demonstrates partial failure — one record has an invalid country code `ZZ`. The valid record still gets inserted; the bad one comes back in the `failures` array."
+          },
+          "response": []
+        },
+        {
+          "name": "Dry Run",
+          "request": {
+            "auth": { "type": "inherit" },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"externalId\": \"preview_001\",\n    \"name\": \"Preview User\",\n    \"email\": \"preview@example.com\",\n    \"countryCode\": \"SG\",\n    \"statusCode\": \"ACTIVE\"\n  }\n]",
+              "options": {
+                "raw": { "language": "json" }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/customers/ingest/dry-run",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "customers", "ingest", "dry-run"]
+            },
+            "description": "Runs the full ingestion logic — deduplication, lookup resolution, existence check — but writes nothing to the database. Use this to preview impact before committing a large batch."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Refresh Lookup Cache",
+          "request": {
+            "auth": { "type": "inherit" },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/admin/lookup/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "admin", "lookup", "refresh"]
+            },
+            "description": "Forces an immediate reload of the in-memory country and status caches from the database. Under normal operation this is not needed — the cache auto-refreshes every 5 minutes."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Metrics",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{actuatorUrl}}/actuator/health",
+              "host": ["{{actuatorUrl}}"],
+              "path": ["actuator", "health"]
+            },
+            "description": "Returns `{\"status\":\"UP\"}` when the app and database connection are healthy."
+          },
+          "response": []
+        },
+        {
+          "name": "Prometheus Metrics",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{actuatorUrl}}/actuator/prometheus",
+              "host": ["{{actuatorUrl}}"],
+              "path": ["actuator", "prometheus"]
+            },
+            "description": "Exposes all Micrometer metrics in Prometheus scrape format."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
