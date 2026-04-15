@@ -10,4 +10,9 @@ spring:
       idle-timeout: 900000
       max-lifetime: 1800000
 
+  # Safe local defaults — never use these values in production
+  security:
+    user:
+      name: ${INGESTION_API_USERNAME:dev-user}
+      password: ${INGESTION_API_PASSWORD:dev-pass}
 

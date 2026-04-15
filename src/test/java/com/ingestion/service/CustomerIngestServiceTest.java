@@ -4,11 +4,12 @@ import com.ingestion.dto.CustomerIngestRequest;
 import com.ingestion.dto.IngestResponse;
 import com.ingestion.dto.ResolvedCustomer;
 import com.ingestion.repository.CustomerRepository;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -30,11 +31,19 @@ class CustomerIngestServiceTest {
     @Mock
     private LookupCacheService lookupCacheService;
 
-    @InjectMocks
+    // SimpleMeterRegistry is a real no-op implementation — avoids stubbing every timer/counter call
+    private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
     private CustomerIngestService ingestService;
 
     @BeforeEach
     void setUp() {
+        // CustomerIngestChunkProcessor must be a real Spring bean for @Transactional to work;
+        // in unit tests we construct it directly with the same mocks.
+        CustomerIngestChunkProcessor chunkProcessor =
+                new CustomerIngestChunkProcessor(customerRepository, lookupCacheService, meterRegistry);
+        ingestService = new CustomerIngestService(
+                chunkProcessor, customerRepository, lookupCacheService, meterRegistry);
         ReflectionTestUtils.setField(ingestService, "chunkSize", 1000);
     }
 
@@ -209,6 +218,59 @@ class CustomerIngestServiceTest {
         assertThat(response.getInserted()).isEqualTo(0);
         assertThat(response.getFailed()).isEqualTo(2);
         verify(customerRepository, never()).bulkInsert(any());
+    }
+
+    // ---------------------------------------------------------------
+    // Test 8 — dryRun: reports would-insert/would-skip without writing
+    // ---------------------------------------------------------------
+    @Test
+    void dryRun_shouldReportCountsWithoutPersisting() {
+        // GIVEN — cust_001 already exists, cust_002 is new
+        when(lookupCacheService.resolveCountryCode("US")).thenReturn(Optional.of(1L));
+        when(lookupCacheService.resolveStatusCode("ACTIVE")).thenReturn(Optional.of(1L));
+        when(customerRepository.findExistingExternalIds(any()))
+                .thenReturn(Set.of("cust_001"));
+
+        // WHEN
+        IngestResponse response = ingestService.dryRun(List.of(
+                customer("cust_001", "US", "ACTIVE"),
+                customer("cust_002", "US", "ACTIVE")
+        ));
+
+        // THEN — counts reflect simulation; no DB writes
+        assertThat(response.getReceived()).isEqualTo(2);
+        assertThat(response.getInserted()).isEqualTo(1);        // cust_002 would be inserted
+        assertThat(response.getSkippedExisting()).isEqualTo(1); // cust_001 would be skipped
+        assertThat(response.getFailed()).isEqualTo(0);
+
+        // Critical: bulkInsert must NEVER be called in dry-run mode
+        verify(customerRepository, never()).bulkInsert(any());
+    }
+
+    // ---------------------------------------------------------------
+    // Test 9 — dryRun: lookup failure still reported, no DB access
+    // ---------------------------------------------------------------
+    @Test
+    void dryRun_shouldReportFailureForUnknownCodeWithoutDbAccess() {
+        // GIVEN — resolveCountryCode and resolveStatusCode are both called eagerly
+        // (both evaluated before the isEmpty check), so both must be stubbed
+        when(lookupCacheService.resolveCountryCode("XX")).thenReturn(Optional.empty());
+        when(lookupCacheService.resolveStatusCode("ACTIVE")).thenReturn(Optional.of(1L));
+
+        // WHEN
+        IngestResponse response = ingestService.dryRun(
+                List.of(customer("cust_007", "XX", "ACTIVE"))
+        );
+
+        // THEN
+        assertThat(response.getFailed()).isEqualTo(1);
+        assertThat(response.getInserted()).isEqualTo(0);
+        assertThat(response.getFailures().get(0).getReason())
+                .contains("Unknown country_code: XX");
+
+        // No DB access at all — resolved list is empty so findExistingExternalIds is skipped
+        verify(customerRepository, never()).bulkInsert(any());
+        verify(customerRepository, never()).findExistingExternalIds(any());
     }
 
     // ---------------------------------------------------------------

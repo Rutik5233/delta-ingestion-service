@@ -32,6 +32,8 @@ ingestion:
   chunk-size: 1000
   # Maximum batch size per request (100k max as per requirements)
   max-batch-size: 100000
+  # How often to auto-refresh the in-memory lookup cache (ms). Default: 5 minutes
+  cache-refresh-interval-ms: 300000
 
 management:
   endpoints:
