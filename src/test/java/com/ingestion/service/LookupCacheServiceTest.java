@@ -1,5 +1,6 @@
 package com.ingestion.service;
 
+import com.ingestion.service.impl.InMemoryLookupCache;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,12 +25,12 @@ class LookupCacheServiceTest {
     // Real registry so we can assert counter values
     private final MeterRegistry meterRegistry = new SimpleMeterRegistry();
 
-    private LookupCacheService service;
+    private InMemoryLookupCache service;
 
     @BeforeEach
     @SuppressWarnings("unchecked")
     void setUp() {
-        service = new LookupCacheService(jdbcTemplate, meterRegistry);
+        service = new InMemoryLookupCache(jdbcTemplate, meterRegistry);
 
         // @PostConstruct does not run in plain unit tests — invoke manually.
         // The JdbcTemplate mock silently does nothing, so caches load empty.

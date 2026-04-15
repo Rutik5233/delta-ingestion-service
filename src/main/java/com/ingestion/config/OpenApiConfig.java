@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
         name = "basicAuth",
         type = SecuritySchemeType.HTTP,
         scheme = "basic",
-        description = "Enter your username and password. Credentials are configured via environment variables."
+        description = "Enter your username and password. Credentials are configured via INGESTION_API_USERNAME and INGESTION_API_PASSWORD environment variables."
 )
 public class OpenApiConfig {
 

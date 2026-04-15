@@ -4,6 +4,8 @@ import com.ingestion.dto.CustomerIngestRequest;
 import com.ingestion.dto.IngestResponse;
 import com.ingestion.dto.ResolvedCustomer;
 import com.ingestion.repository.CustomerRepository;
+import com.ingestion.service.impl.CustomerIngestServiceImpl;
+import com.ingestion.service.impl.CustomerIngestChunkProcessor;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,8 +44,7 @@ class CustomerIngestServiceTest {
         // in unit tests we construct it directly with the same mocks.
         CustomerIngestChunkProcessor chunkProcessor =
                 new CustomerIngestChunkProcessor(customerRepository, lookupCacheService, meterRegistry);
-        ingestService = new CustomerIngestService(
-                chunkProcessor, customerRepository, lookupCacheService, meterRegistry);
+        ingestService = new CustomerIngestServiceImpl(chunkProcessor);
         ReflectionTestUtils.setField(ingestService, "chunkSize", 1000);
     }
 

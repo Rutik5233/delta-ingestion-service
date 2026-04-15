@@ -1,6 +1,7 @@
 package com.ingestion.repository;
 
 import com.ingestion.dto.ResolvedCustomer;
+import com.ingestion.repository.impl.JdbcCustomerRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,7 +27,7 @@ class CustomerRepositoryTest {
 
     @BeforeEach
     void setUp() {
-        repository = new CustomerRepository(jdbcTemplate);
+        repository = new JdbcCustomerRepository(jdbcTemplate);
     }
 
     // ---------------------------------------------------------------
